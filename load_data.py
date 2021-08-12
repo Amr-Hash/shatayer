@@ -1,9 +1,13 @@
 import pandas as pd
 import demjson
 from sqlalchemy import create_engine
+import os
+from dotenv import load_dotenv
 
-def cities_dataframe():
-    with open('data/ar-lookups.json', encoding='utf-8') as f:
+load_dotenv()
+
+def get_cities_from_json(file_path):
+    with open(file_path, encoding='utf-8') as f:
         data = demjson.decode(f.read())
         cities = pd.DataFrame(data['lookups']['cities'])
         
@@ -21,8 +25,20 @@ def cities_dataframe():
         
         return cities
 
-def areas_dataframe():
-    with open('data/ar-lookups.json', encoding='utf-8') as f:
+def get_cities():
+    english_citites = get_cities_from_json('data/en-lookups.json')
+    english_citites.set_index('uuid', inplace=True)
+    english_citites['name_en'] = english_citites.name
+    
+    arabic_citites = get_cities_from_json('data/ar-lookups.json')
+    arabic_citites.set_index('uuid', inplace=True)
+    arabic_citites.rename(columns={'name': 'name_ar'}, inplace=True)
+    arabic_citites.drop('country_id', 1, inplace=True)
+
+    return pd.concat([english_citites, arabic_citites], axis=1)
+
+def get_areas_from_json(file_path):
+    with open(file_path, encoding='utf-8') as f:
         data = demjson.decode(f.read())
         areas = pd.DataFrame(data['lookups']['areas'])
         
@@ -48,8 +64,23 @@ def areas_dataframe():
         
         return areas
 
-def zones_dataframe():
-    with open('data/ar-lookups.json', encoding='utf-8') as f:
+def get_areas():
+    english_areas = get_areas_from_json('data/en-lookups.json')
+    english_areas.set_index('uuid', inplace=True)
+    english_areas['name_en'] = english_areas.name
+    
+    arabic_areas = get_areas_from_json('data/ar-lookups.json')
+    arabic_areas.set_index('uuid', inplace=True)
+    arabic_areas.rename(columns={'name': 'name_ar'}, inplace=True)
+    arabic_areas.drop('city_id', 1, inplace=True)
+    arabic_areas.drop('lon', 1, inplace=True)
+    arabic_areas.drop('lat', 1, inplace=True)
+    
+    return pd.concat([english_areas, arabic_areas], axis=1)
+
+
+def get_zones_from_json(file_path):
+    with open(file_path, encoding='utf-8') as f:
         data = demjson.decode(f.read())
         zones = pd.DataFrame(data['lookups']['zones'])
         
@@ -75,14 +106,34 @@ def zones_dataframe():
         
         return zones
 
+def get_zones():
+    english_zones = get_zones_from_json('data/en-lookups.json')
+    english_zones.set_index('uuid', inplace=True)
+    english_zones['name_en'] = english_zones.name
+    
+    arabic_zones = get_zones_from_json('data/ar-lookups.json')
+    arabic_zones.set_index('uuid', inplace=True)
+    arabic_zones.rename(columns={'name': 'name_ar'}, inplace=True)
+    arabic_zones.drop('area_id', 1, inplace=True)
+    arabic_zones.drop('lon', 1, inplace=True)
+    arabic_zones.drop('lat', 1, inplace=True)
+    
+    return pd.concat([english_zones, arabic_zones], axis=1)
+
 def insert_into_table(table_name, df):
-    engine = create_engine('sqlite:///db.sqlite3', echo=False)
-    df.to_sql(table_name, con=engine, if_exists='append', index=False)
+    db = os.environ.get('POSTGRES_DB', 'x')
+    user = os.environ.get('POSTGRES_USER', 'x')
+    password =  os.environ.get('POSTGRES_PASSWORD', 'x')
+    host = os.environ.get('POSTGRES_HOST', 'x')
+
+    engine = create_engine(f"postgresql+psycopg2://{user}:{password}@{host}/{db}", echo=False)
+    df.to_sql(table_name, con=engine, if_exists='append')
 
 def main():
-    # insert_into_table('menus_city', cities_dataframe())
-    # insert_into_table('menus_area', areas_dataframe())
-    insert_into_table('menus_zone', zones_dataframe())
+    # insert_into_table('location_city', get_cities())
+    # insert_into_table('location_area', get_areas())
+    # insert_into_table('location_zone', get_zones())
+    pass
     
 if __name__ == "__main__":
     main()
